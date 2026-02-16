@@ -704,11 +704,22 @@ function updateDisplay() {
     }
 
     if (brokenCount > 0) {
-        elements.repairContainer.classList.remove('hidden');
-        elements.repairBtn.disabled = state.money < totalRepairCost;
-        elements.repairCostDisplay.textContent = `(全${brokenCount}件 / 費用: ${totalRepairCost.toLocaleString()}¥)`;
+        if (elements.repairBtn) {
+            elements.repairBtn.disabled = state.money < totalRepairCost;
+            elements.repairBtn.classList.remove('hidden'); // Ensure visible if needed
+        }
+        if (elements.repairCostDisplay) {
+            elements.repairCostDisplay.textContent = `(全${brokenCount}件 / 費用: ${totalRepairCost.toLocaleString()}¥)`;
+        }
     } else {
-        elements.repairContainer.classList.add('hidden');
+        // Option: Hide button or just disable?
+        // Let's just text update and disable implies "No repairs needed"
+        if (elements.repairBtn) {
+            elements.repairBtn.disabled = true;
+        }
+        if (elements.repairCostDisplay) {
+            elements.repairCostDisplay.textContent = '(修理なし)';
+        }
     }
 
     // Shop Buttons Logic
