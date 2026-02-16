@@ -1,13 +1,23 @@
-# Grid Clicker Game
+# Grid Clicker Game (グリッド・クリッカー・ゲーム)
 
-A simple grid-based clicker game.
+シンプルなグリッドベースの都市育成クリッカーゲームです。
 
-## Features
-- Grid-based gameplay
-- Upgrades and buildings
-- Save/Load functionality
+## 特徴
+- **グリッド配置**: 施設をパズルのように配置して効率を最大化しよう。
+- **施設と建設**: 工場、倉庫、発電所などを建設し、相互作用で収入をブースト。
+- **無限研究システム**: 資金がある限り、生産性や寿命を無限に強化可能。
+- **寿命とメンテナンス**: 施設は稼働すると劣化します。メンテナンスや建て替えで都市を維持しよう。
+- **自動セーブ**: ブラウザに自動で進行状況が保存されます。
 
-## technologies
+## 技術スタック
 - HTML
 - CSS
-- JavaScript
+- JavaScript (Vanilla JS)
+
+## 遊び方
+1. **Work**: クリックして初期資金を稼ぐ。
+2. **Build**: 「町工場」を建設して自動収入を得る。
+3. **Research**: 「研究」で新しい施設（資材倉庫など）をアンロック。
+4. **Expand**: 都市（グリッド）を拡張し、巨大産業地帯を築こう！
+
+詳しい仕様は `specifications.md` を参照してください。
