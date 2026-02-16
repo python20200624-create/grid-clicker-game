@@ -553,10 +553,20 @@ body {
     border: 3px solid #f97316;
 }
 
-.cell.supply_depot {
-    background: #e2e8f0;
-    /* Slate 200 */
-    border: 3px solid #64748b;
+/* Skill Node Cost */
+.skill-node .cost {
+    margin-top: auto;
+    font-weight: 800;
+    color: #0f172a;
+    /* Dark text */
+    font-size: 0.95rem;
+    background: #fcd34d;
+    /* Bright amber */
+    padding: 6px 12px;
+    border-radius: 8px;
+    align-self: flex-start;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid #f59e0b;
 }
 
 .cell.factory_large {
