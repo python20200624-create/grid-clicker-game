@@ -1627,8 +1627,9 @@ function init() {
 
 
         // First render & calc to establish current income rate
-        renderGrid();
-        updateDisplay();
+        // First render & calc to establish current income rate
+        updateDisplay(); // Calculates income and cellIncomes
+        renderGrid();    // Renders grid using cellIncomes
         setupEventListeners();
         startGameLoop();
 
