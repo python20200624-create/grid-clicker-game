@@ -1553,7 +1553,7 @@ else {
         btn.style.opacity = '1';
     }
 }
-}
+
 // Save & Load System
 function saveGame() {
     const data = {
