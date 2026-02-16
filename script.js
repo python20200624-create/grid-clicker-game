@@ -1677,8 +1677,10 @@ function init() {
         console.log('Game Initialized Successfully');
 
         // Force hide modal to prevent overlay issues
-        if (elements.skillModal) {
-            elements.skillModal.style.display = 'none';
+        if (elements.skillModal) elements.skillModal.style.display = 'none';
+        if (elements.menuModal) {
+            elements.menuModal.classList.add('hidden');
+            elements.menuModal.style.display = ''; // Reset inline style to allow CSS class to work
         }
 
     } catch (e) {
