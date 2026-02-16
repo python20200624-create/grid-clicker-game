@@ -1218,9 +1218,13 @@ function placeBuilding(x, y, buildingType) {
     const newBuilding = { ...buildingType };
 
     // Initialize Lifetime
-    // Base Lifetime: Factory=300, Others=Infinite(999999)
+    // Base Lifetime: Factory=300 (5min), Others=Infinite
     let baseMax = 300;
-    if (newBuilding.id !== 'factory') baseMax = 999999;
+    const isFactory = ['factory_small', 'factory_large'].includes(newBuilding.id);
+
+    if (!isFactory) {
+        baseMax = 999999;
+    }
 
     const mult = getMaxLifetimeMultiplier();
     newBuilding.maxLifetime = Math.floor(baseMax * mult);

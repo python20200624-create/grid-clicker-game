@@ -671,12 +671,15 @@ body {
 
 /* Lifetime Bar */
 .lifetime-bar-container {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    width: calc(100% - 12px);
     background: rgba(0, 0, 0, 0.1);
     height: 6px;
     border-radius: 3px;
-    bottom: 6px;
-    left: 6px;
-    right: 6px;
+    overflow: hidden;
+    z-index: 5;
 }
 
 /* Broken */
