@@ -1453,51 +1453,106 @@ function setupEventListeners() {
     // Skill UI (Reset only, tree interaction is dynamic)
     if (elements.resetSkillsBtn) elements.resetSkillsBtn.addEventListener('click', handleResetSkills);
 
+    // Grid Interaction (Pinch Zoom & Pan)
+    const gridWrapper = document.querySelector('.grid-outer-wrapper');
+    const grid = elements.grid;
+
+    let scale = 1;
+    let panning = false;
+    let pointX = 0;
+    let pointY = 0;
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    gridWrapper.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault(); // Prevent default zoom
+            initialDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            initialScale = scale;
+        } else if (e.touches.length === 1) {
+            // Pan start
+            panning = true;
+            startX = e.touches[0].clientX - pointX;
+            startY = e.touches[0].clientY - pointY;
+        }
+    }, { passive: false });
+
+    gridWrapper.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const distance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            const delta = distance / initialDistance;
+            scale = Math.min(Math.max(0.5, initialScale * delta), 3); // Limit scale 0.5x to 3x
+            updateTransform();
+        } else if (e.touches.length === 1 && panning) {
+            e.preventDefault();
+            pointX = e.touches[0].clientX - startX;
+            pointY = e.touches[0].clientY - startY;
+            updateTransform();
+        }
+    }, { passive: false });
+
+    gridWrapper.addEventListener('touchend', () => {
+        panning = false;
+    });
+
+    function updateTransform() {
+        grid.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
     console.log("Setup Event Listeners Finished");
 }
+if (!btn) return;
 
-function updateShopButton(btn, buildingId) {
-    if (!btn) return;
+const isUnlocked = isBuildingUnlocked(buildingId);
 
-    const isUnlocked = isBuildingUnlocked(buildingId);
-
-    // LOCKED STATE
-    if (!isUnlocked) {
-        if (!btn.disabled || !btn.classList.contains('locked')) {
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-lock"></i> <span class="btn-text">Locked</span>`;
-            btn.classList.add('locked');
-        }
+// LOCKED STATE
+if (!isUnlocked) {
+    if (!btn.disabled || !btn.classList.contains('locked')) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-lock"></i> <span class="btn-text">Locked</span>`;
+        btn.classList.add('locked');
     }
-    // UNLOCKED STATE
-    else {
-        // Restore if it was locked or empty
-        if (btn.disabled || btn.classList.contains('locked')) {
-            btn.disabled = false;
-            btn.classList.remove('locked');
+}
+// UNLOCKED STATE
+else {
+    // Restore if it was locked or empty
+    if (btn.disabled || btn.classList.contains('locked')) {
+        btn.disabled = false;
+        btn.classList.remove('locked');
 
-            const bData = state.buildings[buildingId];
-            let icon = 'fa-industry';
-            if (buildingId === 'supply_depot') icon = 'fa-warehouse';
-            if (buildingId === 'factory_large') icon = 'fa-city';
-            if (buildingId === 'power_plant') icon = 'fa-bolt';
+        const bData = state.buildings[buildingId];
+        let icon = 'fa-industry';
+        if (buildingId === 'supply_depot') icon = 'fa-warehouse';
+        if (buildingId === 'factory_large') icon = 'fa-city';
+        if (buildingId === 'power_plant') icon = 'fa-bolt';
 
-            btn.innerHTML = `
+        btn.innerHTML = `
                  <i class="fa-solid ${icon}"></i>
                  <div class="shop-btn-info">
                      <span class="btn-text">${bData.name}</span>
                      <span class="btn-cost">${bData.cost.toLocaleString()}¥</span>
                  </div>
              `;
-        }
-
-        // Affordability Check (Visual only)
-        if (state.money < state.buildings[buildingId].cost) {
-            btn.style.opacity = '0.6';
-        } else {
-            btn.style.opacity = '1';
-        }
     }
+
+    // Affordability Check (Visual only)
+    if (state.money < state.buildings[buildingId].cost) {
+        btn.style.opacity = '0.6';
+    } else {
+        btn.style.opacity = '1';
+    }
+}
 }
 // Save & Load System
 function saveGame() {
