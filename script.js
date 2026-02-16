@@ -972,8 +972,8 @@ function calculateCellIncomes() {
 
     // Specific Buffs
     // Check if skills exist in array safe way
-    const hasLogistics2 = state.acquiredSkills && state.acquiredSkills.includes('logistics_2');
-    const hasOverload = state.acquiredSkills && state.acquiredSkills.includes('overload_operation');
+    const hasLogistics2 = (state.skillLevels['logistics_2'] || 0) > 0;
+    const hasOverload = (state.skillLevels['overload_operation'] || 0) > 0;
 
     const depotBuffMult = hasLogistics2 ? 1.3 : 1.2;
     const powerBuffMult = hasOverload ? 2.0 : 1.5;
@@ -1045,6 +1045,7 @@ function calculateCellIncomes() {
     }
 
     state.totalIncomeRate = Math.floor(total);
+    cellIncomes = incomes; // Update global variable
     updateDisplay();
     return incomes;
 }
@@ -1628,7 +1629,8 @@ function init() {
 
         // First render & calc to establish current income rate
         // First render & calc to establish current income rate
-        updateDisplay(); // Calculates income and cellIncomes
+        calculateCellIncomes(); // Calculates income and POPULATES cellIncomes
+        updateDisplay();
         renderGrid();    // Renders grid using cellIncomes
         setupEventListeners();
         startGameLoop();
