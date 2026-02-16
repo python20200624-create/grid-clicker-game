@@ -1396,12 +1396,9 @@ function setupEventListeners() {
         elements.panelContainer.classList.add('hidden');
         [elements.panelWork, elements.panelBuild, elements.panelResearch].forEach(p => p.classList.add('hidden'));
         [elements.navWork, elements.navBuild, elements.navResearch].forEach(btn => btn.classList.remove('active'));
-        // Cancel placement mode if open
-        if (state.placementMode) {
-            state.placementMode = false;
-            state.selectedBuilding = null;
-            elements.grid.classList.remove('placement-mode');
-        }
+        elements.panelContainer.classList.add('hidden');
+        [elements.panelWork, elements.panelBuild, elements.panelResearch].forEach(p => p.classList.add('hidden'));
+        [elements.navWork, elements.navBuild, elements.navResearch].forEach(btn => btn.classList.remove('active'));
     };
 
     if (elements.navWork) elements.navWork.addEventListener('click', () => togglePanel('panel-work'));
