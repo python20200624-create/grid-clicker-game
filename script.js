@@ -740,7 +740,9 @@ function updateDisplay() {
     if (state.placementMode !== lastDisplayState.placementMode || currentBuildingId !== lastDisplayState.selectedBuildingId) {
 
         if (state.placementMode) {
-            showStatus('設置場所を選択してください... (キャンセルはボタンを再クリック)');
+            // showStatus('設置場所を選択してください... (キャンセルはボタンを再クリック)'); 
+            hideStatus(); // Keep it hidden or just don't show
+
 
             if (isBuildingUnlocked('factory_small')) setShopButtonState(elements.buyFactorySmallBtn, 'factory_small', smallCost, 'Small Factory');
             if (isBuildingUnlocked('supply_depot')) setShopButtonState(elements.buySupplyDepotBtn, 'supply_depot', depotCost, 'Supply Depot');
