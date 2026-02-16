@@ -628,17 +628,45 @@ body {
     border: none;
 }
 
-/* Utilities */
-.hidden {
+/* Toast - Force Hidden as requested */
+#status-message {
     display: none !important;
 }
 
-/* Toast */
-.toast {
-    background: white;
-    color: var(--text-main);
-    border: none;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+/* Management Buttons */
+.mgmt-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+#expand-btn {
+    background: linear-gradient(135deg, #8b5cf6, #d946ef);
+    /* Purple to Pink */
+    color: white;
+    padding: 20px;
+    border-radius: 16px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    width: 100%;
+    margin-top: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#expand-btn:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 5px rgba(139, 92, 246, 0.4);
+}
+
+#expand-btn:disabled {
+    background: #cbd5e1;
+    color: #94a3b8;
+    box-shadow: none;
+    border-color: transparent;
 }
 
 /* Lifetime Bar */
