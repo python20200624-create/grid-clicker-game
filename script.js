@@ -7,13 +7,10 @@ const state = {
     placementMode: false,
     selectedBuilding: null,
     totalIncomeRate: 0,
-    isDragging: false, // New: Track drag state
-    acquiredSkills: [], // New: Skill Tree
-    acquiredSkills: [], // New: Skill Tree
-    clickLevel: 1, // New: Click Upgrade Level
-    clickLevel: 1, // New: Click Upgrade Level
+    isDragging: false,
+    skillLevels: {}, // New: Map of skill ID -> Level
+    clickLevel: 1, // Legacy support kept but should ideally move to skillLevels too
     buildings: {
-
         factory_small: {
             id: 'factory_small',
             name: '町工場',
@@ -48,87 +45,87 @@ const state = {
 // Skill Data
 // Skill Data
 const skillData = [
-    // Tier 1: Dawn of Industry
+    // Tier 1: Foundation
     {
         id: "tech_foundation",
         name: "基礎産業技術",
-        description: "全ての収益 +5%。生産の基礎。",
-        cost: 500,
-        type: "Passive",
-        exclusive_with: null,
-        effects: { revenue_add_percent: 0.05 },
+        description: (lv) => `全ての収益 +${(lv * 5)}%。生産の基礎。`,
+        baseCost: 500,
+        costFunc: (lv) => Math.floor(500 * Math.pow(1.5, lv)),
+        maxLevel: -1, // Infinite
+        effects: (lv) => ({ revenue_add_percent: 0.05 * lv }),
         children: ["logistics_1", "quality_control"]
     },
     {
         id: "logistics_1",
         name: "資材管理システム",
-        description: "「資材倉庫」が建設可能になる。",
-        cost: 1000,
-        type: "Unlock",
-        exclusive_with: null,
-        effects: { unlock_building: "supply_depot" },
+        description: () => `「資材倉庫」が建設可能になる。`,
+        baseCost: 1000,
+        costFunc: () => 1000,
+        maxLevel: 1, // Unlock only
+        effects: () => ({ unlock_building: "supply_depot" }),
         children: ["mass_production"]
     },
-    // Tier 2: Growth
+    // Tier 2: Optimization
     {
         id: "quality_control",
         name: "品質管理プロセス",
-        description: "全施設の寿命が1.5倍になる。",
-        cost: 2000,
-        type: "Passive",
-        exclusive_with: null,
-        effects: { max_lifetime_mult: 1.5 },
+        description: (lv) => `全施設の寿命 +${(lv * 50)}% (Lv.${lv})`,
+        baseCost: 2000,
+        costFunc: (lv) => Math.floor(2000 * Math.pow(1.4, lv)),
+        maxLevel: -1,
+        effects: (lv) => ({ max_lifetime_mult: 1 + (0.5 * lv) }), // 1.5x at Lv1, 2.0x at Lv2...
         children: ["automated_maintenance"]
     },
     {
         id: "mass_production",
         name: "大量生産ライン",
-        description: "「ハイテク工場」が建設可能になる。",
-        cost: 3000,
-        type: "Unlock",
-        exclusive_with: null,
-        effects: { unlock_building: "factory_large" },
+        description: () => `「ハイテク工場」が建設可能になる。`,
+        baseCost: 3000,
+        costFunc: () => 3000,
+        maxLevel: 1,
+        effects: () => ({ unlock_building: "factory_large" }),
         children: ["logistics_2"]
     },
     {
         id: "logistics_2",
         name: "物流最適化",
-        description: "資材倉庫のバフ効果が強化される (1.2倍 -> 1.3倍)。",
-        cost: 4000,
-        type: "Passive",
-        exclusive_with: null,
-        effects: { depot_buff_mult: 1.3 }, // Custom effect logic needed
+        description: (lv) => `資材倉庫の効果 +${lv * 10}% (現在: ${(1.2 + (0.1 * lv)).toFixed(1)}倍)`,
+        baseCost: 4000,
+        costFunc: (lv) => Math.floor(4000 * Math.pow(1.6, lv)),
+        maxLevel: -1,
+        effects: (lv) => ({ depot_buff_add: 0.1 * lv }),
         children: ["power_grid"]
     },
-    // Tier 3: Industrial Revolution
+    // Tier 3: Advanced
     {
         id: "power_grid",
         name: "電力網整備",
-        description: "「火力発電所」が建設可能になる。",
-        cost: 8000,
-        type: "Unlock",
-        exclusive_with: null,
-        effects: { unlock_building: "power_plant" },
+        description: () => `「火力発電所」が建設可能になる。`,
+        baseCost: 8000,
+        costFunc: () => 8000,
+        maxLevel: 1,
+        effects: () => ({ unlock_building: "power_plant" }),
         children: ["overload_operation"]
     },
     {
         id: "automated_maintenance",
         name: "自動メンテナンス",
-        description: "全施設の寿命減少速度を30%抑える。",
-        cost: 6000,
-        type: "Passive",
-        exclusive_with: null,
-        effects: { decay_rate_mult: 0.7 },
+        description: (lv) => `寿命減少速度 -${Math.min(90, lv * 5)}% (Lv.${lv})`,
+        baseCost: 6000,
+        costFunc: (lv) => Math.floor(6000 * Math.pow(1.5, lv)),
+        maxLevel: 18, // Cap at 90% reduction
+        effects: (lv) => ({ decay_rate_mult: Math.max(0.1, 1.0 - (0.05 * lv)) }),
         children: []
     },
     {
         id: "overload_operation",
         name: "過負荷運転",
-        description: "発電所の効果が2.0倍になるが、全施設の寿命減少が2倍速になる。",
-        cost: 10000,
-        type: "Active",
-        exclusive_with: null,
-        effects: { power_plant_buff: 2.0, decay_rate_mult: 2.0 },
+        description: (lv) => `発電所効果 +${lv * 50}% / 寿命減少 x${(1 + lv * 0.5).toFixed(1)}`,
+        baseCost: 10000,
+        costFunc: (lv) => Math.floor(10000 * Math.pow(2.0, lv)),
+        maxLevel: -1,
+        effects: (lv) => ({ power_plant_buff_add: 0.5 * lv, decay_rate_penalty: 0.5 * lv }),
         children: []
     }
 ];
@@ -185,52 +182,87 @@ function closeSkillModal() {
 }
 
 
+
+function getSkillLevel(skillId) {
+    return state.skillLevels[skillId] || 0;
+}
+
+function getSkillCost(skillId) {
+    const skill = skillData.find(s => s.id === skillId);
+    if (!skill) return 0;
+    const currentLv = getSkillLevel(skillId);
+    if (skill.maxLevel > 0 && currentLv >= skill.maxLevel) return Infinity; // Maxed
+    return skill.costFunc(currentLv);
+}
+
 function renderSkillTree() {
     elements.skillTreeContainer.innerHTML = '';
 
-    // 1. Render Normal Skills
     skillData.forEach(skill => {
         const node = document.createElement('div');
         node.classList.add('skill-node');
 
-        // Status classes
-        const isAcquired = state.acquiredSkills.includes(skill.id);
-        const isExcluded = isSkillExcluded(skill.id);
-        const isAffordable = state.money >= skill.cost;
-        const isUnlockable = isSkillUnlockable(skill.id);
+        const currentLv = getSkillLevel(skill.id);
+        const nextLv = currentLv + 1;
+        const isMaxed = skill.maxLevel > 0 && currentLv >= skill.maxLevel;
+        const cost = getSkillCost(skill.id);
 
-        if (isAcquired) node.classList.add('acquired');
-        if (isExcluded) node.classList.add('excluded');
-        if (!isAcquired && !isUnlockable) node.classList.add('locked');
+        // Status checks
+        const isUnlocked = isSkillUnlockable(skill.id);
+        const isAffordable = state.money >= cost;
 
-        // Inner HTML
+        if (currentLv > 0) node.classList.add('acquired');
+        if (!isUnlocked && currentLv === 0) node.classList.add('locked');
+        if (isMaxed) node.classList.add('maxed');
+
+        // Text
+        const costText = isMaxed ? 'MAX' : `${cost.toLocaleString()}¥`;
+        const levelText = skill.maxLevel === 1 ? (currentLv > 0 ? "取得済" : "未取得") : `Lv.${currentLv}`;
+        let description = typeof skill.description === 'function' ? skill.description(currentLv) : skill.description;
+
+        // Show NEXT effect if possible and not maxed
+        if (!isMaxed && skill.maxLevel !== 1) {
+            const nextDesc = typeof skill.description === 'function' ? skill.description(nextLv) : "";
+            // description += ` → <span style="color:#4ade80">${nextDesc}</span>`; // Simple append?
+            // Maybe just rely on the dynamic description showing current stats, and user implies next is better.
+            // Or show "Next: ..." ?
+            // For simplicity, skill.description(currentLv) usually shows CURRENT benefit.
+            // To encourage upgrade, we might want to show NEXT benefit.
+            // Let's pass `nextLv` to description for the preview if it's 0? No, let's keep it simple.
+        }
+
         node.innerHTML = `
-            <div class="type ${skill.type}">${skill.type}</div>
-            <h3>${skill.name}</h3>
-            <p>${skill.description}</p>
-            <div class="cost">${isAcquired ? '習得済み' : (isExcluded ? '取得不可' : skill.cost + '¥')}</div>
+            <div class="type ${skill.maxLevel === 1 ? 'Unlock' : 'Passive'}">${skill.maxLevel === 1 ? 'UNLOCK' : 'PASSIVE'}</div>
+            <h3>${skill.name} <span class="level-badge">${levelText}</span></h3>
+            <p>${description}</p>
+            <div class="cost" style="color: ${isAffordable && !isMaxed ? '#f59e0b' : '#94a3b8'}">
+                ${isMaxed ? 'MAX' : `Next: ${cost.toLocaleString()}¥`}
+            </div>
         `;
 
         // Click Handler
         node.addEventListener('click', () => {
-            if (isAcquired || isExcluded) return;
-            if (!isUnlockable) {
-                alert('前提スキルが未習得です。');
+            if (isMaxed) return;
+            if (!isUnlocked) {
+                alert('前提スキルが必要です。');
                 return;
             }
-            if (!isAffordable) {
+            if (state.money < cost) {
                 alert('お金が足りません。');
                 return;
             }
-            if (confirm(`${skill.name} を研究しますか？\n費用: ${skill.cost}¥`)) {
-                purchaseSkill(skill.id);
-            }
+            purchaseSkill(skill.id);
         });
 
         elements.skillTreeContainer.appendChild(node);
     });
 
-    // 2. Render Training Section (Click Upgrade)
+    // Render Click Upgrade (Training) separately
+    renderClickUpgradeNode();
+}
+
+function renderClickUpgradeNode() {
+    // ... (Existing click upgrade logic could be merged into skillData, but keeping separate for now is fine)
     const divider = document.createElement('div');
     divider.style.width = '100%';
     divider.style.borderTop = '1px solid #475569';
@@ -238,7 +270,7 @@ function renderSkillTree() {
     elements.skillTreeContainer.appendChild(divider);
 
     const upgradeLabel = document.createElement('h3');
-    upgradeLabel.textContent = "社員教育 (Click Power)";
+    upgradeLabel.textContent = "社員教育 (クリック強化)";
     upgradeLabel.style.width = '100%';
     upgradeLabel.style.color = '#f8fafc';
     upgradeLabel.style.textAlign = 'center';
@@ -246,7 +278,7 @@ function renderSkillTree() {
 
     const trainingNode = document.createElement('div');
     trainingNode.classList.add('skill-node');
-    trainingNode.style.borderColor = '#f59e0b'; // Gold border for special
+    trainingNode.style.borderColor = '#f59e0b';
 
     const clickCost = getClickUpgradeCost();
     const currentIncome = getClickIncome();
@@ -254,7 +286,7 @@ function renderSkillTree() {
     const canAfford = state.money >= clickCost;
 
     trainingNode.innerHTML = `
-        <div class="type" style="background: #f59e0b; color: black;">Training</div>
+        <div class="type" style="background: #f59e0b; color: black;">Action</div>
         <h3>労働効率改善 Lv.${state.clickLevel}</h3>
         <p>クリック収益: ${currentIncome}¥ → ${nextIncome}¥</p>
         <div class="cost" style="color: ${canAfford ? '#f59e0b' : '#94a3b8'}">コスト: ${clickCost.toLocaleString()}¥</div>
@@ -271,33 +303,30 @@ function renderSkillTree() {
     elements.skillTreeContainer.appendChild(trainingNode);
 }
 
+
 function isSkillExcluded(skillId) {
-    // Check if exclusive partner is acquired
-    const skill = skillData.find(s => s.id === skillId);
-    if (!skill || !skill.exclusive_with) return false;
-    return state.acquiredSkills.includes(skill.exclusive_with);
+    return false; // No exclusions in new design
 }
 
 function isSkillUnlockable(skillId) {
     if (skillId === 'tech_foundation') return true;
-
-    // Find parent (very simple tree search for this flat data)
-    // Who has this skill as child?
     const parent = skillData.find(s => s.children && s.children.includes(skillId));
-    if (!parent) return false; // Should not happen for non-root
-
-    return state.acquiredSkills.includes(parent.id);
+    if (!parent) return false;
+    return getSkillLevel(parent.id) > 0;
 }
 
 function purchaseSkill(skillId) {
-    const skill = skillData.find(s => s.id === skillId);
-    if (spendMoney(skill.cost)) {
-        state.acquiredSkills.push(skillId);
+    const cost = getSkillCost(skillId);
+    if (spendMoney(cost)) {
+        if (!state.skillLevels[skillId]) state.skillLevels[skillId] = 0;
+        state.skillLevels[skillId]++;
+
         renderSkillTree();
         updateDisplay();
         saveGame();
     }
 }
+
 
 function handleResetSkills() {
     const penalty = Math.floor(state.money * 0.1);
@@ -324,60 +353,72 @@ function handleResetSkills() {
 
 // ... init ... (Keep existing init but update it later if needed)
 
+
 // Logic: Revenue Multiplier
 function calculateRevenueMultiplier() {
     let multiplierAdd = 0;
-    state.acquiredSkills.forEach(id => {
-        const skill = skillData.find(s => s.id === id);
-        if (skill && skill.effects.revenue_add_percent) {
-            multiplierAdd += skill.effects.revenue_add_percent;
+    skillData.forEach(skill => {
+        const lv = getSkillLevel(skill.id);
+        if (lv > 0 && skill.effects) {
+            const effect = skill.effects(lv);
+            if (effect.revenue_add_percent) {
+                multiplierAdd += effect.revenue_add_percent;
+            }
         }
     });
     return 1 + multiplierAdd;
 }
 
-// Logic: Failure Check
-// Logic: Failure Check (Individual)
 // Logic: Max Lifetime Multiplier
 function getMaxLifetimeMultiplier() {
     let mult = 1.0;
-    state.acquiredSkills.forEach(id => {
-        const skill = skillData.find(s => s.id === id);
-        if (skill && skill.effects.max_lifetime_mult) {
-            mult *= skill.effects.max_lifetime_mult; // Multiply or Add? Usually multiply for "1.5x"
-            // If strictly additive (1.5 + 2.0 = 3.5x), logical.
-            // If multiplicative (1.5 * 2.0 = 3.0x), also fine.
-            // Let's go with Max (replace) or Multiply. 
-            // Since tree branches, probably separate. Let's use MAX if we want tiers, or Mult if stack.
-            // Description says "1.5x", "2.0x". Let's assume they might stack or replace.
-            // Let's simply take the highest multiplier if we want simple tiers, 
-            // OR multiply them. Let's just use the highest value found for now to avoid exponential brokenness.
-        }
-    });
-    // Actually, iterating to find max is better for "Tier 1", "Tier 2".
-    let maxMult = 1.0;
-    state.acquiredSkills.forEach(id => {
-        const skill = skillData.find(s => s.id === id);
-        if (skill && skill.effects.max_lifetime_mult) {
-            if (skill.effects.max_lifetime_mult > maxMult) {
-                maxMult = skill.effects.max_lifetime_mult;
+    skillData.forEach(skill => {
+        const lv = getSkillLevel(skill.id);
+        if (lv > 0 && skill.effects) {
+            const effect = skill.effects(lv);
+            if (effect.max_lifetime_mult) {
+                // If multiple skills provide this, how do they combine?
+                // Currently only 'quality_control' provides it.
+                // Infinite scaling logic: usually multiply or add.
+                // effect.max_lifetime_mult from formula is "1 + 0.5 * lv" (e.g. 1.5, 2.0...)
+                // If we have multiple sources, adding them might be safer: Base + (Buff1 - 1) + (Buff2 - 1)
+                // BUT current design has only one source. Let's just multiply for future proofing or replace.
+                // Let's use replacement if it's the main scaler.
+                if (effect.max_lifetime_mult > mult) mult = effect.max_lifetime_mult;
             }
         }
     });
-    return maxMult;
+    return mult;
 }
 
 // Logic: Decay Rate Multiplier
 function getDecayRateMultiplier() {
     let mult = 1.0;
-    state.acquiredSkills.forEach(id => {
-        const skill = skillData.find(s => s.id === id);
-        if (skill && skill.effects.decay_rate_mult) {
-            mult *= skill.effects.decay_rate_mult;
+    // Positive effects (Reduction)
+    skillData.forEach(skill => {
+        const lv = getSkillLevel(skill.id);
+        if (lv > 0 && skill.effects) {
+            const effect = skill.effects(lv);
+            if (effect.decay_rate_mult) {
+                mult *= effect.decay_rate_mult;
+            }
         }
     });
+
+    // Negative effects (Increase from Overload)
+    skillData.forEach(skill => {
+        const lv = getSkillLevel(skill.id);
+        if (lv > 0 && skill.effects) {
+            const effect = skill.effects(lv);
+            if (effect.decay_rate_penalty) {
+                mult += effect.decay_rate_penalty; // Additive penalty? e.g. +50% -> 1.5
+            }
+        }
+    });
+
     return mult;
 }
+
 
 // Logic: Lifetime Update (Decay)
 function updateBuildingStatus() {
@@ -422,13 +463,8 @@ function updateBuildingStatus() {
 
 // Logic: Max Offline Hours
 function getMaxOfflineHours() {
-    let hours = 24; // Base
-    state.acquiredSkills.forEach(id => {
-        const skill = skillData.find(s => s.id === id);
-        if (skill && skill.effects.offline_duration_add_hours) {
-            hours += skill.effects.offline_duration_add_hours;
-        }
-    });
+    let hours = 24;
+    // Implement if skills add offline time
     return hours;
 }
 
@@ -579,9 +615,9 @@ let lastDisplayState = {
 function isBuildingUnlocked(buildingId) {
     if (buildingId === 'factory_small') return true;
 
-    if (buildingId === 'supply_depot') return state.acquiredSkills.includes('logistics_1');
-    if (buildingId === 'factory_large') return state.acquiredSkills.includes('mass_production');
-    if (buildingId === 'power_plant') return state.acquiredSkills.includes('power_grid');
+    if (buildingId === 'supply_depot') return getSkillLevel('logistics_1') > 0;
+    if (buildingId === 'factory_large') return getSkillLevel('mass_production') > 0;
+    if (buildingId === 'power_plant') return getSkillLevel('power_grid') > 0;
 
     return true;
 }
@@ -597,30 +633,6 @@ function updateShopButton(btn, id, cost, name) {
     }
     btn.style.opacity = '1';
     // Text will be reset by setShopButtonState/resetShopButtonState if visible
-}
-
-// Helper to check building unlock status
-function isBuildingUnlocked(buildingId) {
-    if (buildingId === 'factory_small') return true;
-
-    if (buildingId === 'supply_depot') return state.acquiredSkills.includes('logistics_1');
-    if (buildingId === 'factory_large') return state.acquiredSkills.includes('mass_production');
-    if (buildingId === 'power_plant') return state.acquiredSkills.includes('power_grid');
-
-    return true;
-}
-
-function updateShopButton(btn, id, cost, name) {
-    if (!btn) return;
-    const isUnlocked = isBuildingUnlocked(id);
-    if (!isUnlocked) {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.innerHTML = `<i class="fa-solid fa-lock"></i> <span class="btn-text">Locked</span>`;
-        return;
-    }
-    btn.style.opacity = '1';
-    // Text and icon will be set by setShopButtonState/resetShopButtonState
 }
 
 function updateDisplay() {
@@ -1367,7 +1379,7 @@ function saveGame() {
         money: state.money,
         gridSize: state.gridSize,
         grid: state.grid,
-        acquiredSkills: state.acquiredSkills,
+        skillLevels: state.skillLevels,
         clickLevel: state.clickLevel,
         isFailureActive: state.isFailureActive,
         lastSaveTime: Date.now()
@@ -1386,7 +1398,20 @@ function loadGame() {
                 state.money = data.money;
                 state.gridSize = data.gridSize;
                 state.grid = data.grid;
-                state.acquiredSkills = data.acquiredSkills || [];
+
+                // MIGRATION: Array -> Object
+                if (data.skillLevels) {
+                    state.skillLevels = data.skillLevels;
+                } else if (data.acquiredSkills) {
+                    // Convert old array to new map
+                    state.skillLevels = {};
+                    data.acquiredSkills.forEach(id => {
+                        state.skillLevels[id] = 1;
+                    });
+                } else {
+                    state.skillLevels = {};
+                }
+
                 state.clickLevel = data.clickLevel || 1;
 
                 // MIGRATION: Remove old buildings
@@ -1437,7 +1462,7 @@ function init() {
         const offlineSeconds = loadGame();
 
         // Ensure state integrity
-        if (!state.acquiredSkills) state.acquiredSkills = [];
+        if (!state.skillLevels) state.skillLevels = {};
 
         // Ensure valid grid size
         if (typeof state.gridSize !== 'number' || state.gridSize < 3 || state.gridSize > state.maxGridSize) {
