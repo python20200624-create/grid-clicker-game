@@ -140,25 +140,41 @@ function initDomElements() {
         moneyDisplay: document.getElementById('money-display'),
         incomeRateDisplay: document.getElementById('income-rate-display'),
         grid: document.getElementById('grid'),
+
+        // Navigation & Panels
+        navWork: document.getElementById('nav-work'),
+        navBuild: document.getElementById('nav-build'),
+        navResearch: document.getElementById('nav-research'),
+
+        panelContainer: document.getElementById('panel-container'),
+        panelOverlay: document.getElementById('panel-overlay'),
+        panelWork: document.getElementById('panel-work'),
+        panelBuild: document.getElementById('panel-build'),
+        panelResearch: document.getElementById('panel-research'),
+        closePanelButtons: document.querySelectorAll('.close-panel'),
+
+        // Buttons inside panels
         workBtn: document.getElementById('work-btn'),
         expandBtn: document.getElementById('expand-btn'),
+
         buyFactorySmallBtn: document.getElementById('buy-factory-small-btn'),
         buySupplyDepotBtn: document.getElementById('buy-supply-depot-btn'),
         buyFactoryLargeBtn: document.getElementById('buy-factory-large-btn'),
         buyPowerPlantBtn: document.getElementById('buy-power-plant-btn'),
+
         statusMessage: document.getElementById('status-message'),
 
-        // Skill UI
-        researchBtn: document.getElementById('research-btn'),
-        skillModal: document.getElementById('skill-modal'),
-        closeSkillModalBtn: document.getElementById('close-skill-modal'),
+        // Research
         skillTreeContainer: document.getElementById('skill-tree-container'),
         resetSkillsBtn: document.getElementById('reset-skills-btn'),
 
-        // Repair UI
-        repairContainer: document.getElementById('repair-container'),
+        // Menu
+        menuBtn: document.getElementById('menu-btn'),
+        menuModal: document.getElementById('menu-modal'),
+        closeMenuBtn: document.getElementById('close-menu-btn'),
         repairBtn: document.getElementById('repair-btn'),
-        repairCostDisplay: document.getElementById('repair-cost')
+        repairCostDisplay: document.getElementById('repair-cost'),
+        resetBtn: document.getElementById('reset-btn')
     };
 }
 
@@ -1334,45 +1350,140 @@ function handleCellClick(x, y) {
 }
 
 // Event Listeners
+// Event Listeners
 function setupEventListeners() {
-    elements.workBtn.addEventListener('click', handleWork);
-    elements.expandBtn.addEventListener('click', handleExpand);
+    // Navigation & Panels
+    const togglePanel = (panelId) => {
+        const panels = [elements.panelWork, elements.panelBuild, elements.panelResearch];
+        const allNavs = [elements.navWork, elements.navBuild, elements.navResearch];
 
+        // Hide others
+        panels.forEach(p => {
+            if (p.id !== panelId) p.classList.add('hidden');
+        });
+
+        const targetPanel = document.getElementById(panelId);
+
+        // Toggle logic
+        if (targetPanel.classList.contains('hidden')) {
+            elements.panelContainer.classList.remove('hidden');
+            targetPanel.classList.remove('hidden');
+            // Update Active Nav
+            allNavs.forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.querySelector(`[data-target="${panelId}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Refresh specific panel content if needed
+            if (panelId === 'panel-research') renderSkillTree();
+        } else {
+            closeAllPanels();
+        }
+    };
+
+    const closeAllPanels = () => {
+        elements.panelContainer.classList.add('hidden');
+        [elements.panelWork, elements.panelBuild, elements.panelResearch].forEach(p => p.classList.add('hidden'));
+        [elements.navWork, elements.navBuild, elements.navResearch].forEach(btn => btn.classList.remove('active'));
+        // Cancel placement mode if open
+        if (state.placementMode) {
+            state.placementMode = false;
+            state.selectedBuilding = null;
+            elements.grid.classList.remove('placement-mode');
+        }
+    };
+
+    if (elements.navWork) elements.navWork.addEventListener('click', () => togglePanel('panel-work'));
+    if (elements.navBuild) elements.navBuild.addEventListener('click', () => togglePanel('panel-build'));
+    if (elements.navResearch) elements.navResearch.addEventListener('click', () => togglePanel('panel-research'));
+
+    if (elements.panelOverlay) elements.panelOverlay.addEventListener('click', closeAllPanels);
+    if (elements.closePanelButtons) elements.closePanelButtons.forEach(btn => btn.addEventListener('click', closeAllPanels));
+
+    // Core Actions
+    if (elements.workBtn) elements.workBtn.addEventListener('click', handleWork);
+    if (elements.expandBtn) elements.expandBtn.addEventListener('click', handleExpand);
+
+    // Shop Buttons
     if (elements.buyFactorySmallBtn) elements.buyFactorySmallBtn.addEventListener('click', () => handleBuyBuilding('factory_small'));
     if (elements.buySupplyDepotBtn) elements.buySupplyDepotBtn.addEventListener('click', () => handleBuyBuilding('supply_depot'));
     if (elements.buyFactoryLargeBtn) elements.buyFactoryLargeBtn.addEventListener('click', () => handleBuyBuilding('factory_large'));
     if (elements.buyPowerPlantBtn) elements.buyPowerPlantBtn.addEventListener('click', () => handleBuyBuilding('power_plant'));
+
+    // Grid Interactions (Mouse & Touch)
+    // We need to define handleGridClick to accept events
+    const onGridInteract = (e) => {
+        // Prevent default touch actions if needed (like scrolling while placing)
+        // e.preventDefault(); 
+        handleGridClick(e);
+    };
+
+    elements.grid.addEventListener('mousedown', onGridInteract);
+    // elements.grid.addEventListener('touchstart', onGridInteract, {passive: false}); // Conflict with scroll?
 
     // Global Mouse Up to stop dragging
     window.addEventListener('mouseup', () => {
         state.isDragging = false;
     });
 
-    // Mouse Leave Grid (Safety)
-    elements.grid.addEventListener('mouseleave', () => {
-        state.isDragging = false;
-    });
-
     // Reset Button
-    document.getElementById('reset-btn').addEventListener('click', handleReset);
+    if (elements.resetBtn) elements.resetBtn.addEventListener('click', handleReset);
 
-    // Skill UI Listeners
-    if (elements.researchBtn) elements.researchBtn.addEventListener('click', openSkillModal);
-    if (elements.closeSkillModalBtn) elements.closeSkillModalBtn.addEventListener('click', closeSkillModal);
-    if (elements.resetSkillsBtn) elements.resetSkillsBtn.addEventListener('click', handleResetSkills);
+    // Menu
+    if (elements.menuBtn) elements.menuBtn.addEventListener('click', () => elements.menuModal.classList.remove('hidden'));
+    if (elements.closeMenuBtn) elements.closeMenuBtn.addEventListener('click', () => elements.menuModal.classList.add('hidden'));
 
     // Repair Listener
     if (elements.repairBtn) elements.repairBtn.addEventListener('click', handleRepairAll);
 
-    // Close modal on outside click
-    window.addEventListener('click', (e) => {
-        if (e.target === elements.skillModal) {
-            closeSkillModal();
-        }
-    });
+    // Skill UI (Reset only, tree interaction is dynamic)
+    if (elements.resetSkillsBtn) elements.resetSkillsBtn.addEventListener('click', handleResetSkills);
+
     console.log("Setup Event Listeners Finished");
 }
 
+function updateShopButton(btn, buildingId) {
+    if (!btn) return;
+
+    const isUnlocked = isBuildingUnlocked(buildingId);
+
+    // LOCKED STATE
+    if (!isUnlocked) {
+        if (!btn.disabled || !btn.classList.contains('locked')) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-lock"></i> <span class="btn-text">Locked</span>`;
+            btn.classList.add('locked');
+        }
+    }
+    // UNLOCKED STATE
+    else {
+        // Restore if it was locked or empty
+        if (btn.disabled || btn.classList.contains('locked')) {
+            btn.disabled = false;
+            btn.classList.remove('locked');
+
+            const bData = state.buildings[buildingId];
+            let icon = 'fa-industry';
+            if (buildingId === 'supply_depot') icon = 'fa-warehouse';
+            if (buildingId === 'factory_large') icon = 'fa-city';
+            if (buildingId === 'power_plant') icon = 'fa-bolt';
+
+            btn.innerHTML = `
+                 <i class="fa-solid ${icon}"></i>
+                 <div class="shop-btn-info">
+                     <span class="btn-text">${bData.name}</span>
+                     <span class="btn-cost">${bData.cost.toLocaleString()}¥</span>
+                 </div>
+             `;
+        }
+
+        // Affordability Check (Visual only)
+        if (state.money < state.buildings[buildingId].cost) {
+            btn.style.opacity = '0.6';
+        } else {
+            btn.style.opacity = '1';
+        }
+    }
+}
 // Save & Load System
 function saveGame() {
     const data = {
