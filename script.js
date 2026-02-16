@@ -1555,204 +1555,202 @@ function updateShopButton(btn, buildingId) {
             btn.style.opacity = '1';
         }
     }
+}
 
-    // Save & Load System
-    function saveGame() {
-        const data = {
-            money: state.money,
-            gridSize: state.gridSize,
-            grid: state.grid,
-            skillLevels: state.skillLevels,
-            clickLevel: state.clickLevel,
-            isFailureActive: state.isFailureActive,
-            lastSaveTime: Date.now()
-        };
-        localStorage.setItem('gridClickerSave', JSON.stringify(data));
-    }
+// Save & Load System
+function saveGame() {
+    const data = {
+        money: state.money,
+        gridSize: state.gridSize,
+        grid: state.grid,
+        skillLevels: state.skillLevels,
+        clickLevel: state.clickLevel,
+        isFailureActive: state.isFailureActive,
+        lastSaveTime: Date.now()
+    };
+    localStorage.setItem('gridClickerSave', JSON.stringify(data));
+}
 
-    function loadGame() {
-        const json = localStorage.getItem('gridClickerSave');
-        if (json) {
-            try {
-                const data = JSON.parse(json);
+function loadGame() {
+    const json = localStorage.getItem('gridClickerSave');
+    if (json) {
+        try {
+            const data = JSON.parse(json);
 
-                // Validate basic structure
-                if (data.money !== undefined && data.grid && data.gridSize) {
-                    state.money = data.money;
-                    state.gridSize = data.gridSize;
-                    state.grid = data.grid;
+            // Validate basic structure
+            if (data.money !== undefined && data.grid && data.gridSize) {
+                state.money = data.money;
+                state.gridSize = data.gridSize;
+                state.grid = data.grid;
 
-                    // MIGRATION: Array -> Object
-                    if (data.skillLevels) {
-                        state.skillLevels = data.skillLevels;
-                    } else if (data.acquiredSkills) {
-                        // Convert old array to new map
-                        state.skillLevels = {};
-                        data.acquiredSkills.forEach(id => {
-                            state.skillLevels[id] = 1;
-                        });
-                    } else {
-                        state.skillLevels = {};
-                    }
+                // MIGRATION: Array -> Object
+                if (data.skillLevels) {
+                    state.skillLevels = data.skillLevels;
+                } else if (data.acquiredSkills) {
+                    // Convert old array to new map
+                    state.skillLevels = {};
+                    data.acquiredSkills.forEach(id => {
+                        state.skillLevels[id] = 1;
+                    });
+                } else {
+                    state.skillLevels = {};
+                }
 
-                    state.clickLevel = data.clickLevel || 1;
+                state.clickLevel = data.clickLevel || 1;
 
-                    // MIGRATION: Remove old buildings
-                    if (state.grid) {
-                        for (let y = 0; y < state.gridSize; y++) {
-                            for (let x = 0; x < state.gridSize; x++) {
-                                const cell = state.grid[y][x];
-                                if (cell && ['apartment', 'park', 'factory'].includes(cell.id)) {
-                                    state.grid[y][x] = null;
-                                }
+                // MIGRATION: Remove old buildings
+                if (state.grid) {
+                    for (let y = 0; y < state.gridSize; y++) {
+                        for (let x = 0; x < state.gridSize; x++) {
+                            const cell = state.grid[y][x];
+                            if (cell && ['apartment', 'park', 'factory'].includes(cell.id)) {
+                                state.grid[y][x] = null;
                             }
                         }
                     }
-
-                    // Return offline seconds
-                    if (data.lastSaveTime) {
-                        const now = Date.now();
-                        return Math.floor((now - data.lastSaveTime) / 1000);
-                    }
                 }
-            } catch (e) {
-                console.error('Save file corrupted', e);
-            }
-        }
-        return null;
-    }
 
-    function handleReset() {
-        if (window.confirm('本当にデータをリセットして最初からやり直しますか？\n（この操作は取り消せません）')) {
-            localStorage.removeItem('gridClickerSave');
-            location.reload();
-        }
-
-    }
-
-    // Initialization
-    function init() {
-        try {
-            console.log('Initializing Game...');
-            initDomElements(); // Ensure DOM elements are grabbed
-
-            // Verify critical elements
-            if (!elements.grid || !elements.workBtn) {
-                throw new Error('Critical DOM elements missing. Check HTML structure.');
-            }
-
-            // Try loading
-            const offlineSeconds = loadGame();
-
-            // Ensure state integrity
-            if (!state.skillLevels) state.skillLevels = {};
-
-            // Ensure valid grid size
-            if (typeof state.gridSize !== 'number' || state.gridSize < 3 || state.gridSize > state.maxGridSize) {
-                console.warn('Invalid gridSize detected, resetting to 3.');
-                state.gridSize = 3;
-                state.grid = []; // Force rebuild
-            }
-
-            if (offlineSeconds === null || !Array.isArray(state.grid) || state.grid.length !== state.gridSize) {
-                // Initialize default grid state if no save found OR grid is corrupted
-                console.log('Initializing or repairing grid...');
-                state.grid = [];
-                for (let y = 0; y < state.gridSize; y++) {
-                    const row = [];
-                    for (let x = 0; x < state.gridSize; x++) {
-                        row.push(null); // null means empty
-                    }
-                    state.grid.push(row);
-                }
-            } else {
-                // Deep check for row integrity AND patch legacy data
-                for (let y = 0; y < state.gridSize; y++) {
-                    if (!Array.isArray(state.grid[y]) || state.grid[y].length !== state.gridSize) {
-                        console.warn(`Row ${y} corrupted, fixing...`);
-                        const newRow = [];
-                        for (let x = 0; x < state.gridSize; x++) {
-                            newRow.push(null);
-                        }
-                        state.grid[y] = newRow;
-                    }
-
-                    // Patch legacy buildings (missing lifetime)
-                    for (let x = 0; x < state.gridSize; x++) {
-                        const cell = state.grid[y][x];
-                        if (cell && (typeof cell.lifetime === 'undefined' || typeof cell.maxLifetime === 'undefined')) {
-                            let baseMax = 300;
-                            if (cell.id !== 'factory') baseMax = 999999;
-                            // Use current multiplier for patching
-                            // NOTE: At this point skills are loaded, so we can use multiplier.
-                            // However, we need to call getMaxLifetimeMultiplier() but that depends on skillData 
-                            // logic which is defined.
-                            // Let's just default to base to avoid complex deps, or use 1.0. 
-                            // Better to be safe.
-                            cell.maxLifetime = baseMax; // Resetting to base might be annoyance but better than crash
-                            cell.lifetime = baseMax;
-                            cell.isBroken = false;
-                        }
-                    }
+                // Return offline seconds
+                if (data.lastSaveTime) {
+                    const now = Date.now();
+                    return Math.floor((now - data.lastSaveTime) / 1000);
                 }
             }
-
-
-            // First render & calc to establish current income rate
-            // First render & calc to establish current income rate
-            calculateCellIncomes(); // Calculates income and POPULATES cellIncomes
-            updateDisplay();
-            renderGrid();    // Renders grid using cellIncomes
-            setupEventListeners();
-            startGameLoop();
-
-            // Process Offline Earnings
-            if (offlineSeconds !== null && offlineSeconds > 0 && state.totalIncomeRate > 0) {
-                const offlineIncome = state.totalIncomeRate * offlineSeconds;
-                if (offlineIncome > 0) {
-                    addMoney(offlineIncome);
-
-                    // Format time display
-                    const hours = Math.floor(offlineSeconds / 3600);
-                    const minutes = Math.floor((offlineSeconds % 3600) / 60);
-                    const seconds = offlineSeconds % 60;
-
-                    let timeStr = '';
-                    if (hours > 0) timeStr += `${hours}時間 `;
-                    if (minutes > 0) timeStr += `${minutes}分 `;
-                    timeStr += `${seconds}秒`;
-
-                    // Use setTimeout to allow UI to render first
-                    setTimeout(() => {
-                        alert(`おかえりなさい！\n不在の間に ${offlineIncome.toLocaleString()}円 の不労所得が発生しました。\n(放置時間: ${timeStr})`);
-                    }, 100);
-                }
-            }
-
-            // Auto-Save every 5 seconds
-            setInterval(saveGame, 5000);
-            console.log('Game Initialized Successfully');
-
-            // Force hide modal to prevent overlay issues
-            if (elements.skillModal) elements.skillModal.style.display = 'none';
-            if (elements.menuModal) {
-                elements.menuModal.classList.add('hidden');
-                elements.menuModal.style.display = ''; // Reset inline style to allow CSS class to work
-            }
-
         } catch (e) {
-            console.error('Initialization Error:', e);
-            alert('ゲームの起動中にエラーが発生しました。\n' + e.message);
+            console.error('Save file corrupted', e);
         }
     }
+    return null;
+}
 
-
-
-
-    // Start Game safely
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+function handleReset() {
+    if (window.confirm('本当にデータをリセットして最初からやり直しますか？\n（この操作は取り消せません）')) {
+        localStorage.removeItem('gridClickerSave');
+        location.reload();
     }
+
+}
+
+// Initialization
+function init() {
+    try {
+        console.log('Initializing Game...');
+        initDomElements(); // Ensure DOM elements are grabbed
+
+        // Verify critical elements
+        if (!elements.grid || !elements.workBtn) {
+            throw new Error('Critical DOM elements missing. Check HTML structure.');
+        }
+
+        // Try loading
+        const offlineSeconds = loadGame();
+
+        // Ensure state integrity
+        if (!state.skillLevels) state.skillLevels = {};
+
+        // Ensure valid grid size
+        if (typeof state.gridSize !== 'number' || state.gridSize < 3 || state.gridSize > state.maxGridSize) {
+            console.warn('Invalid gridSize detected, resetting to 3.');
+            state.gridSize = 3;
+            state.grid = []; // Force rebuild
+        }
+
+        if (offlineSeconds === null || !Array.isArray(state.grid) || state.grid.length !== state.gridSize) {
+            // Initialize default grid state if no save found OR grid is corrupted
+            console.log('Initializing or repairing grid...');
+            state.grid = [];
+            for (let y = 0; y < state.gridSize; y++) {
+                const row = [];
+                for (let x = 0; x < state.gridSize; x++) {
+                    row.push(null); // null means empty
+                }
+                state.grid.push(row);
+            }
+        } else {
+            // Deep check for row integrity AND patch legacy data
+            for (let y = 0; y < state.gridSize; y++) {
+                if (!Array.isArray(state.grid[y]) || state.grid[y].length !== state.gridSize) {
+                    console.warn(`Row ${y} corrupted, fixing...`);
+                    const newRow = [];
+                    for (let x = 0; x < state.gridSize; x++) {
+                        newRow.push(null);
+                    }
+                    state.grid[y] = newRow;
+                }
+
+                // Patch legacy buildings (missing lifetime)
+                for (let x = 0; x < state.gridSize; x++) {
+                    const cell = state.grid[y][x];
+                    if (cell && (typeof cell.lifetime === 'undefined' || typeof cell.maxLifetime === 'undefined')) {
+                        let baseMax = 300;
+                        if (cell.id !== 'factory') baseMax = 999999;
+                        // Use current multiplier for patching
+                        // NOTE: At this point skills are loaded, so we can use multiplier.
+                        // However, we need to call getMaxLifetimeMultiplier() but that depends on skillData 
+                        // logic which is defined.
+                        // Let's just default to base to avoid complex deps, or use 1.0. 
+                        // Better to be safe.
+                        cell.maxLifetime = baseMax; // Resetting to base might be annoyance but better than crash
+                        cell.lifetime = baseMax;
+                        cell.isBroken = false;
+                    }
+                }
+            }
+        }
+
+
+        // First render & calc to establish current income rate
+        // First render & calc to establish current income rate
+        calculateCellIncomes(); // Calculates income and POPULATES cellIncomes
+        updateDisplay();
+        renderGrid();    // Renders grid using cellIncomes
+        setupEventListeners();
+        startGameLoop();
+
+        // Process Offline Earnings
+        if (offlineSeconds !== null && offlineSeconds > 0 && state.totalIncomeRate > 0) {
+            const offlineIncome = state.totalIncomeRate * offlineSeconds;
+            if (offlineIncome > 0) {
+                addMoney(offlineIncome);
+
+                // Format time display
+                const hours = Math.floor(offlineSeconds / 3600);
+                const minutes = Math.floor((offlineSeconds % 3600) / 60);
+                const seconds = offlineSeconds % 60;
+
+                let timeStr = '';
+                if (hours > 0) timeStr += `${hours}時間 `;
+                if (minutes > 0) timeStr += `${minutes}分 `;
+                timeStr += `${seconds}秒`;
+
+                // Use setTimeout to allow UI to render first
+                setTimeout(() => {
+                    alert(`おかえりなさい！\n不在の間に ${offlineIncome.toLocaleString()}円 の不労所得が発生しました。\n(放置時間: ${timeStr})`);
+                }, 100);
+            }
+        }
+
+        // Auto-Save every 5 seconds
+        setInterval(saveGame, 5000);
+        console.log('Game Initialized Successfully');
+
+        // Force hide modal to prevent overlay issues
+        if (elements.skillModal) elements.skillModal.style.display = 'none';
+        if (elements.menuModal) {
+            elements.menuModal.classList.add('hidden');
+            elements.menuModal.style.display = ''; // Reset inline style to allow CSS class to work
+        }
+
+    } catch (e) {
+        console.error('Initialization Error:', e);
+        alert('ゲームの起動中にエラーが発生しました。\n' + e.message);
+    }
+}
+
+// Start Game safely
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
